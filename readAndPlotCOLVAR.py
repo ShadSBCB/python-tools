@@ -41,7 +41,7 @@ if os.path.exists('%s.p' % sys.argv[1]) == False:
     pickle.dump(data, open('%s.p' % sys.argv[1], 'w'))
 
 if str(sys.argv[2]).lower() == 'read':
-    print 'Select from the following list:\n''
+    print 'Select from the following list:\n'
     for entry in data:
         print entry
 elif str(sys.argv[2]).lower() == 'plot':
@@ -62,5 +62,6 @@ else:
     print 'Usage:'
     print '/path/to/python /path/to/script.py /path/to/COLVAR read'
     print 'shows options for plotting.'
-    print '/path/to/python /path/to/script.py /path/to/COLVAR plot x y'
-    print 'plots 'x' vs 'y''
+    print '/path/to/python /path/to/script.py /path/to/COLVAR plot field1 field2'
+    print 'plots field1 vs field2'
+
