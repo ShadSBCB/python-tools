@@ -1,6 +1,6 @@
 ########################################################################################################################
 #                                                                                                                      #
-#   Script to plot from a COLVAR file (output of plumed run). It also pickles the COLVAR file for re-use.              #
+#   Script to plot from a COLVAR file (output of plumed run).                                                          #
 #                                                                                                                      #
 #   Usage:                                                                                                             #
 #                                                                                                                      #
@@ -12,6 +12,10 @@
 #                                                                                                                      #
 #   Saves plots under the name field1_vs_field2_COLVAR.svg                                                             #
 #                                                                                                                      #
+#   python readAndPlotCOLVAR.py /path/to/COLVAR save field1 field2                                                     #
+#                                                                                                                      #
+#   Saves data to csv file.                                                                                            #
+#                                                                                                                      #
 #   Script developed by Naushad Velgy. Please send questions to naushad.velgy@dtc.ox.ac.uk                             #
 #                                                                                                                      #
 ########################################################################################################################
@@ -21,29 +25,26 @@ import sys
 import numpy
 import os
 from matplotlib import pyplot
-import pickle
 
-if os.path.exists('%s.p' % sys.argv[1]) == True:
-    data = pickle.load(open('%s.p' % sys.argv[1], 'r'))
-else:
-    with open(sys.argv[1], 'r') as f:
-        d = csv.reader(f, delimiter=' ')
-        for line in d:
-            if line[0] == '#!':
-                entries = line[2:]
-                data = {entries[i]:[] for i in range(len(entries))}
-                continue
-            else:
-                for i,key in enumerate(entries):
-                    data[key].append(line[i+1])
-
-if os.path.exists('%s.p' % sys.argv[1]) == False:
-    pickle.dump(data, open('%s.p' % sys.argv[1], 'w'))
+with open(sys.argv[1], 'r') as f:
+    d = csv.reader(f, delimiter=' ')
+    for line in d:
+        if line[0] == '#!':
+            entries = line[2:]
+            data = {entries[i]:[] for i in range(len(entries))}
+            continue
+        else:
+            for i,key in enumerate(entries):
+                data[key].append(line[i+1])
 
 if str(sys.argv[2]).lower() == 'read':
     print 'Select from the following list:\n'
     for entry in data:
         print entry
+elif str(sys.argv[2]).lower() == 'save':
+    with open('%s_vs_%s_%s.csv' % (str(sys.argv[3]), str(sys.argv[4]), str(sys.argv[1])), 'w') as f:
+        for entries in zip(data[str(sys.argv[3])], data[str(sys.argv[4])]):
+            f.write('%s,%s\n' % (entries[0], entries[1]))
 elif str(sys.argv[2]).lower() == 'plot':
     print 'Plotting...'
     try:
@@ -63,5 +64,6 @@ else:
     print '/path/to/python /path/to/script.py /path/to/COLVAR read'
     print 'shows options for plotting.'
     print '/path/to/python /path/to/script.py /path/to/COLVAR plot field1 field2'
-    print 'plots field1 vs field2'
-
+    print 'plots field1 vs field2 in svg format.'
+    print '/path/to/python /path/to/script.py /path/to/COLVAR save field1 field2'
+    print 'saves field1 vs field2 to csv file.'
