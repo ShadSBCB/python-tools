@@ -7,7 +7,7 @@
 #                                                                                                                      #
 #   Usage:                                                                                                             #
 #                                                                                                                      #
-#   python plumed.py /path/to/inactive/state.gro /path/to/active/state.gro BW_numbers.txt                              #
+#   python plumed.py --input1 /path/to/inactive/state.gro --input2 /path/to/active/state.gro --gpcr BW_numbers.txt     #
 #                                                                                                                      #
 #   The last file is optional and only works with GPCR structures.                                                     #                                                             #
 #                                                                                                                      #
@@ -50,16 +50,61 @@ or (resname VAL and (backbone or name CB))
 )
 """
 
-#Load receptors into universe
-try:
-    inactive = Universe(sys.argv[1])
-    active = Universe(sys.argv[2])
-except IndexError:
+################################################################################
+
+parser = ArgumentParser(description="Generates a text file with a list of unique residues, as well as  files for "
+                                    "visualisation. Requires MDAnalysis and numpy.")
+parser.add_argument('--input1', dest=struct1, default=None, help="Input structure 1, in GRO format.")
+parser.add_argument('--input2', dest=struct2, default=None, help="Input structure 2, in GRO format.")
+parser.add_argument('--scaling_factor', dest=SF, default=1.8, help="Scaling factor. Default is 1.8.")
+parser.add_argument('--gpcr', dest=gpcr, default=None, help="Input text with Ballesteros-Weinstein numbers."
+                                                            "See notes for more details."
+                                                            "If your protein is not a GPCR, do not use this flag.")
+parser.add_argument('--pymol', dest=pymol, action='store_true', help="Outputs a PML file to be used in PyMOL."
+                                                                     "See notes for more details.")
+parser.add_argument('--vmd', dest=vmd, action='store_true', help="Outputs a TCL file to be used in VMD."
+                                                                     "See notes for more details.")
+parser.add_argument('--help', dest=help, action='store_true', help="Print this page and exit.")
+
+args = parser.parse_args()
+################################################################################
+
+if args.help == True:
     print "Usage:"
-    print "python plumed.py /path/to/inactive/state.gro /path/to/active/state.gro /path/to/BW/numbers/file.txt"
+    print "/path/to/python /path/to/plumed_residues.py --input1 /path/to/state1.gro --input2 /path/to/state2.gro"
+    print "--input1 and --input2 are 2 receptor files in different conformations. \n" \
+          "Make sure atoms are in the same order."
+    print "--scaling_factor (optional) determines the scaling factor. The default is 1.8."
+    print "--gpcr (optional) signals script to output residue list with Ballesteros-Weinstein numbers. See notes."
+    print "--pymol (optional) signals script to output a PML file for visualisation of contacts in PyMOL. See notes."
+    print "--vmd (optional) signals script to output a TCL file for visualisation of contacts in VMD. See notes."
+    print "--help prints this page and exits."
     sys.exit()
 
-SCALING_FACTOR = 1.8
+try:
+    inactive = Universe(args.struct1)
+    active = Universe(args.struct2)
+    #Sanity check 1
+    if inactive.filename.split('.')[1] != 'gro' and active.filename.split('.')[1] != 'gro':
+        print "This scripts works better if both inputs are in the GRO format."
+        print "This is because the nomenclature of GRO files is consistent, which is important."
+        print "Consider converting your files to GRO files using, for example,"
+        print "gmx editconf -f input.notgro -o input.gro"
+        sys.exit()
+except IndexError:
+    print "Usage:"
+    print "python plumed.py --input1 /path/to/inactive/state.gro --input2 /path/to/active/state.gro"
+    sys.exit()
+
+#Sanity check 2 (very important)
+for i, atoms in enumerate(zip(inactive.select_atoms('protein').atoms.names,
+                              active.select_atoms('protein').atoms.names)):
+    if atoms[0] == atoms[1]:
+        continue
+    else:
+        print "Atom {} is different in the two structures.".format(i)
+
+SCALING_FACTOR = args.SF
 
 def generate_contacts(
         universe,
@@ -85,7 +130,7 @@ def get_residues(gr, contacts):
 
 def get_BW_numbers(text):
     BW_numbers = {re.compile("([a-zA-Z]+)([0-9]+)").match(line[2].strip()).group(2): line[1].strip() for line in
-                  csv.reader(open(text, 'r'), delimiter=' ') }
+                  csv.reader(open(text, 'r'), delimiter='\t') }
     return BW_numbers
 
 atoms_active, triu_active, contacts_active = generate_contacts(active, selection)
@@ -118,53 +163,57 @@ all_res_active_list = get_residues(atoms_active, contacts_active)
 active_res_list = []
 b = [ active_res_list.append(elem) for elem in all_res_active_list if elem not in active_res_list ]
 
-try:
-    BW_numbers = get_BW_numbers(sys.argv[3])
-    with open('Unique_contact_residues.dat', 'w') as f:
-        writer = csv.writer(f)
-        f.write('Inactive\n')
-        f.write('Resid1 \t BW_number \t Resid2 \t BW_number \n')
-        for entry in inactive_res_list:
-            try:
-                f.write('%s \t %s \t %s \t %s \n' % (entry[0], BW_numbers[str(entry[0])], entry[1],
-                                                 BW_numbers[str(entry[1])]))
-            except KeyError:
-                continue
+if args.gpcr == True:
+    try:
+        BW_numbers = get_BW_numbers(args.gpcr)
+        with open('Unique_contact_residues.dat', 'w') as f:
+            writer = csv.writer(f)
+            f.write('Inactive\n')
+            f.write('Resid1 \t BW_number \t Resid2 \t BW_number \n')
+                for entry in inactive_res_list:
+                    try:
+                        f.write('%s \t %s \t %s \t %s \n' % (entry[0], BW_numbers[str(entry[0])], entry[1],
+                                                             BW_numbers[str(entry[1])]))
+                except KeyError:
+                    continue
 
-        f.write('Active\n')
-        f.write('Resid1 \t Resid2\n')
-        for entry in active_res_list:
-            try:
-                f.write('%s \t %s \t %s \t %s \n' % (entry[0], BW_numbers[str(entry[0])], entry[1],
-                                                 BW_numbers[str(entry[1])]))
-            except KeyError:
-                continue
-except IndexError:
-    print 'BW numbers file not given, or doesn\'t have the correct format.'
-    with open('Unique_contact_residues.dat', 'w') as f:
-        writer = csv.writer(f)
-        f.write('Inactive\n')
-        f.write('Resid1 \t Resid2\n')
-        for entry in inactive_res_list:
-            f.write('%s \t %s \n' % (entry[0], entry[1]))
-        f.write('Active\n')
-        f.write('Resid1 \t Resid2\n')
-        for entry in active_res_list:
-            f.write('%s \t %s \n' % (entry[0], entry[1]))
+            f.write('Active\n')
+            f.write('Resid1 \t Resid2\n')
+            for entry in active_res_list:
+                try:
+                    f.write('%s \t %s \t %s \t %s \n' % (entry[0], BW_numbers[str(entry[0])], entry[1],
+                                                         BW_numbers[str(entry[1])]))
+                except KeyError:
+                    continue
 
-with open('PyMOL_representation.pml', 'w') as f:
-    for entry in get_residues(atoms_inactive, contacts_inactive):
-        f.write('show sticks, resid %s or resid %s and not name H*\n' % (entry[0], entry[1]))
-    for entry in get_residues(atoms_active, contacts_active):
-        f.write('show sticks, resid %s or resid %s and not name H*\n' % (entry[0], entry[1]))
-    f.write('hide (hydro)')
+    except IndexError:
+        print 'BW numbers file not given, or doesn\'t have the correct format.'
+        with open('Unique_contact_residues.dat', 'w') as f:
+            writer = csv.writer(f)
+            f.write('Inactive\n')
+            f.write('Resid1 \t Resid2\n')
+            for entry in inactive_res_list:
+                f.write('%s \t %s \n' % (entry[0], entry[1]))
+            f.write('Active\n')
+            f.write('Resid1 \t Resid2\n')
+            for entry in active_res_list:
+                f.write('%s \t %s \n' % (entry[0], entry[1]))
 
-with open('VMD_representation.tcl', 'w') as f:
-    for entry in get_residues(atoms_inactive, contacts_inactive):
-        f.write('mol representation Licorice\n')
-        f.write('mol selection "noh(resid %s or resid %s)"\n' % (entry[0], entry[1]))
-        f.write('mol addrep top\n')
-    for entry in get_residues(atoms_active, contacts_active):
-        f.write('mol representation Licorice\n')
-        f.write('mol selection "noh(resid %s or resid %s)"\n' % (entry[0], entry[1]))
-        f.write('mol addrep top\n')
+if args.pymol == True:
+    with open('PyMOL_representation.pml', 'w') as f:
+        for entry in get_residues(atoms_inactive, contacts_inactive):
+            f.write('show sticks, resid %s or resid %s and not name H*\n' % (entry[0], entry[1]))
+        for entry in get_residues(atoms_active, contacts_active):
+            f.write('show sticks, resid %s or resid %s and not name H*\n' % (entry[0], entry[1]))
+        f.write('hide (hydro)')
+
+if args.vmd == True:
+    with open('VMD_representation.tcl', 'w') as f:
+        for entry in get_residues(atoms_inactive, contacts_inactive):
+            f.write('mol representation Licorice\n')
+            f.write('mol selection "noh(resid %s or resid %s)"\n' % (entry[0], entry[1]))
+            f.write('mol addrep top\n')
+        for entry in get_residues(atoms_active, contacts_active):
+            f.write('mol representation Licorice\n')
+            f.write('mol selection "noh(resid %s or resid %s)"\n' % (entry[0], entry[1]))
+            f.write('mol addrep top\n')
