@@ -6,15 +6,15 @@
 #                                                                                                                      #
 #   Usage:                                                                                                             #
 #                                                                                                                      #
-#   python plumed.py /path/to/inactive/state.gro /path/to/active/state.gro                                             #
-#                                                                                                                      #
+#   /path/to/python /path/to/plumed.py --input1 /path/to/state1.gro --input2 /path/to/state2.gro --cmap cmap           #                                                                                                                    #
 #                                                                                                                      #
 #   Script developed by Jan Domanski and Naushad Velgy. Please send questions to naushad.velgy@dtc.ox.ac.uk            #
 #                                                                                                                      #
 ########################################################################################################################
 
 #libraries to be used
-from MDAnalysis import Universe as u
+from argparse import ArgumentParser
+from MDAnalysis import Universe
 from MDAnalysis.lib import distances as cdists
 import numpy as np
 import sys
@@ -45,17 +45,57 @@ or (resname TYR and (backbone or name CG or name CZ))
 or (resname VAL and (backbone or name CB))
 )
 """
+################################################################################
+
+parser = ArgumentParser(description='Generation of cmap and plumed file. Requires MDAnalysis and numpy.')
+parser.add_argument('--input1', dest=struct1, default=None, help='Input structure 1, in GRO format.')
+parser.add_argument('--input2', dest=struct2, default=None, help='Input structure 2, in GRO format.')
+parser.add_argument('--scaling_factor', dest=SF, default=1.8, help='Scaling factor. Default is 1.8.')
+parser.add_argument('--cmap', dest=cmap, default='cmap', help="Output CMAP filename. Default is 'cmap'. \"
+                                                              "Also outputs a plumed.dat file.")
+parser.add_argument('--help', dest=help, action='store_true', help='Print this page and exit.')
+
+args = parser.parse_args()
+################################################################################
+
+if args.help == True:
+    print "Usage:"
+    print "/path/to/python /path/to/plumed.py --input1 /path/to/state1.gro --input2 /path/to/state2.gro --cmap cmap"
+    print "--input1 and --input2 are 2 receptor files in different conformations. \n" \
+          "Make sure atoms are in the same order."
+    print "--scaling_factor (optional) determines the scaling factor. The default is 1.8."
+    print "--cmap (optional) determines the name of the output cmap name. The default is 'cmap'."
+    print "--help prints this page."
+    sys.exit()
 
 #Load receptors into universe
 try:
-    inactive = u(sys.argv[1])
-    active = u(sys.argv[2])
+    inactive = Universe(args.struct1)
+    active = Universe(args.struct2)
+    if inactive.filename.split('.')[1] != 'gro' and active.filename.split('.')[1] != 'gro':
+        print "This scripts works better if both inputs are in the GRO format."
+        print "This is because the nomenclature of GRO files is consistent, which is important."
+        print "Consider converting your files to GRO files using, for example,"
+        print "gmx editconf -f input.notgro -o input.gro"
+        sys.exit()
 except IndexError:
     print "Usage:"
-    print "python plumed.py /path/to/inactive/state.gro /path/to/active/state.gro"
+    print "python plumed.py --input1 /path/to/inactive/state.gro --input2 /path/to/active/state.gro"
     sys.exit()
 
-SCALING_FACTOR = 1.8
+#Sanity check 1 (very important)
+for i, atoms in enumerate(zip(inactive.select_atoms('protein').atoms.names,
+                              active.select_atoms('protein').atoms.names)):
+    if atoms[0] == atoms[1]:
+        continue
+    else:
+        print "Atom {} is different in the two structures.".format(i)
+
+print "The atom names order of your two files are different."
+print "Make sure they are in the same order (do not remove hydrogens!) and try again."
+sys.exit()
+
+SCALING_FACTOR = args.SF
 
 def generate_contacts(
         universe,
@@ -104,7 +144,7 @@ for idA, idB in unique_inactive_contacts:
     #print("inactive", da, di)
     contacts_inactive[(idA, idB)] = di
 
-with open('plumed.dat', 'w') as f:
+with open(args.cmap, 'w') as f:
 
     f.write("CONTACTMAP ...\n")
     f.write("".join(generate_lines(atoms_inactive, contacts_inactive)))
@@ -118,6 +158,10 @@ with open('plumed.dat', 'w') as f:
     f.write("SUM\n")
     f.write("... CONTACTMAP\n")
 
-    f.write("cmap: COMBINE ARG=cmap_inactive,cmap_active COEFFICIENTS=1,-1 PERIODIC=NO\n")
+with open('plumed.dat', 'w') as f:
+
+    f.write("INCLUDE FILE={}\n\n".format(args.cmap))
+
+    f.write("cmap: COMBINE ARG=cmap_inactive,cmap_active COEFFICIENTS=1,-1 PERIODIC=NO\n\n")
 
     f.write("PRINT ARG=* FILE=COLVAR")
