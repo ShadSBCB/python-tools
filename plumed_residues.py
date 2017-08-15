@@ -97,12 +97,21 @@ except IndexError:
     sys.exit()
 
 #Sanity check 2 (very important)
-for i, atoms in enumerate(zip(inactive.select_atoms('protein').atoms.names,
+eq = True
+with open('plumed_residues.err', 'w') as e:
+    for i, atoms in enumerate(zip(inactive.select_atoms('protein').atoms.names,
                               active.select_atoms('protein').atoms.names)):
-    if atoms[0] == atoms[1]:
-        continue
-    else:
-        print "Atom {} is different in the two structures.".format(i)
+        if atoms[0] == atoms[1]:
+            continue
+        else:
+            e.write("Atom {} is different in the two structures.".format(i))
+            eq = False
+
+if eq == False:
+    print "The atom names order of your two files are different."
+    print "Make sure they are in the same order (do not remove hydrogens!) and try again."
+    print "Check the plumed_residues.err file for more information."
+    sys.exit()
 
 SCALING_FACTOR = args.SF
 
