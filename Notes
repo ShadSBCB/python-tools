@@ -1,0 +1,118 @@
+Notes on recent commits (by file name):
+
+======================================================================
+
+plumed.py
+
+======================================================================
+
+This script now generates 2 files:
+
+cmap (default name; change with --cmap filename)
+plumed.dat (default name; no flag to change it)
+
+----------------------------------------------------------------------
+
+Make sure the inputs are in the GRO file format.
+
+This is because the mapping of atoms to the
+nearest non-symmetrical atom is defined within,
+and the atoms used in the selection are based
+on the GRO nomenclature.
+
+Structure files can be converted to GRO format
+using, for example, gmx editconf.
+
+If you input two files with different atom
+orders, a plumed.err file is created that shows
+which atoms are out of order in the structures.
+
+For the initial use of this plumed.dat file,
+a custom version of plumed2 was used, available here:
+https://github.com/bestlab/plumed2/tree/intermolecular-drmsd
+
+======================================================================
+
+plumed_residues.py
+
+======================================================================
+
+By default, this script now only generated the complete list of 
+residues that are in contact uniquely in each input (termed
+'Inactive' and 'Active').
+
+This file is named 'Unique_contact_residues.dat', and can be viewed
+using any text parsing software (Nano, Vi, Libre/OpenOffice, etc.).
+
+----------------------------------------------------------------------
+
+The flags --gpcr, --pymol, and --vmd, do as follows:
+
+--gpcr: 
+
+If the input protein is a GPCR, an input tab-separated value text 
+file with the complete list of Ballesteros-Weinstein numbers can be 
+given and the output is changed to reflect both residue numbers and 
+the corresponding Ballesteros-Weinstein numbers.
+
+Example (from the rat Neurotensin receptor):
+
+1x29    1.29    I61
+1x30    1.30    Y62
+1x31    1.31    S63
+1x32    1.32    K64
+1x33    1.33    V65
+1x34    1.34    L66
+1x35    1.35    V67
+1x36    1.36    T68
+1x37    1.37    A69
+1x38    1.38    I70
+1x39    1.39    Y71
+1x40    1.40    L72
+1x41    1.41    A73
+1x42    1.42    L74
+
+These numbers can be acquired from the GPCR database
+(http://gpcrdb.org/), a very useful database for all information
+GPCR related.
+
+--pymol:
+
+Additional to the base 'Unique_contact_residues.dat', the file
+'PyMOL_representation.pml' is also created. To use it, open
+PyMOL, load a PDB version of either input, and type:
+
+@PyMOL_representation.pml
+
+This will show all relevant residues as sticks, and remove
+all hydrogens for the representation.
+
+--vmd:
+
+Same as above, only the file created, 'VMD_representation.tcl'
+is used in VMD.
+
+Load either input into VMD and, in the TKConsole, type:
+
+source VMD_representation.tcl
+
+It has the same effect as above.
+
+The output file 'plumed_residues.err' is filled if there are atoms in 
+a different order (check above for more information). 
+
+======================================================================
+
+readAndPlotCOLVAR.py
+
+======================================================================
+
+All plots generated using this script are saved as SVG (Scalable 
+Vector Graphics) files. This are larger than other image files,
+and can be viewed using Inkscape (Unix), Eye of Gnome (Unix),
+ImageMagick (Unix), and Gapplin (Mac), among others. 
+
+A data file can also be saved (in the csv format), using the
+--save flag.
+
+A working version of matplotlib is required to use this script.
