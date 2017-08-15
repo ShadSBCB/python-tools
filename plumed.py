@@ -72,6 +72,7 @@ if args.help == True:
 try:
     inactive = Universe(args.struct1)
     active = Universe(args.struct2)
+    #Sanity check 1
     if inactive.filename.split('.')[1] != 'gro' and active.filename.split('.')[1] != 'gro':
         print "This scripts works better if both inputs are in the GRO format."
         print "This is because the nomenclature of GRO files is consistent, which is important."
@@ -83,17 +84,22 @@ except IndexError:
     print "python plumed.py --input1 /path/to/inactive/state.gro --input2 /path/to/active/state.gro"
     sys.exit()
 
-#Sanity check 1 (very important)
-for i, atoms in enumerate(zip(inactive.select_atoms('protein').atoms.names,
+#Sanity check 2 (very important)
+eq = True
+with open('plumed.err', 'w') as e:
+    for i, atoms in enumerate(zip(inactive.select_atoms('protein').atoms.names,
                               active.select_atoms('protein').atoms.names)):
-    if atoms[0] == atoms[1]:
-        continue
-    else:
-        print "Atom {} is different in the two structures.".format(i)
+        if atoms[0] == atoms[1]:
+            continue
+        else:
+            e.write("Atom {} is different in the two structures.".format(i))
+            eq = False
 
-print "The atom names order of your two files are different."
-print "Make sure they are in the same order (do not remove hydrogens!) and try again."
-sys.exit()
+if eq = False:
+    print "The atom names order of your two files are different."
+    print "Make sure they are in the same order (do not remove hydrogens!) and try again."
+    print "Check the plumed.err file for more information."
+    sys.exit()
 
 SCALING_FACTOR = args.SF
 
