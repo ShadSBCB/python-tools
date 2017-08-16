@@ -30,27 +30,17 @@ from matplotlib import pyplot
 ################################################################################
 
 parser = ArgumentParser(description="Script to parse and plot data from COLVAR files. Requires Matplotlib.")
-parser.add_argument('-cv', '--colvar', dest=colvar, default=None, help="Path to COLVAR file. Make sure the file "
+parser.add_argument('-cv', '--colvar', dest='colvar', default=None, help="Path to COLVAR file. Make sure the file "
                                                                        "has only one '#!' header.")
-parser.add_argument('--field1', dest=field1, default=None, help="1st field to plot or save.")
-parser.add_argument('--field2', dest=field2, default=None, help="2nd field to plot or save.")
-parser.add_argument('--read', dest=read, action='store_true',
+parser.add_argument('--field1', dest='field1', default=None, help="1st field to plot or save.")
+parser.add_argument('--field2', dest='field2', default=None, help="2nd field to plot or save.")
+parser.add_argument('--read', dest='read', action='store_true',
                     help="Reads COLVAR file and prints fields to plot or save.")
-parser.add_argument('--plot', dest=plot, action='store_true', help="Reads COLVAR file and saves field1_vs_field2.svg.")
-parser.add_argument('--save', dest=save, action='store_true', help="Reads COLVAR file and saves field1_vs_field2.csv.")
-parser.add_argument('--help', dest=help, action='store_true', help="Prints this page and exits.")
+parser.add_argument('--plot', dest='plot', action='store_true', help="Reads COLVAR file and saves field1_vs_field2.svg.")
+parser.add_argument('--save', dest='save', action='store_true', help="Reads COLVAR file and saves field1_vs_field2.csv.")
 
 args = parser.parse_args()
 ################################################################################
-
-if args.help == True:
-    print "Compulsory flags:"
-    print "-cv or --colvar: path to the COLVAR file."
-    print "--field1 and --field2 are the fields to plot."
-    print "--save saves field1 vs field2 in a csv file."
-    print "--plot plots field1 vs field2 in a svg file (requires matplotlib)."
-    print "--help prints this and exits."
-    sys.exit()
 
 #Sanity check 1
 
@@ -81,16 +71,16 @@ with open(args.colvar, 'r') as f:
             print "This is important because the script will only get data after then last #! line"
             print "(which should be the first line of the file."
             sys.exit()
+with open(args.colvar, 'r') as f:
+    d = csv.reader(f, delimiter=' ')
+    for line in d:
+        if line[0] == '#!':
+            entries = line[2:]
+            data = {entries[i]:[] for i in range(len(entries))}
+            continue
         else:
-            d = csv.reader(f, delimiter=' ')
-                for line in d:
-                    if line[0] == '#!':
-                        entries = line[2:]
-                        data = {entries[i]:[] for i in range(len(entries))}
-                        continue
-                    else:
-                        for i,key in enumerate(entries):
-                            data[key].append(line[i+1])
+            for i,key in enumerate(entries):
+                data[key].append(line[i+1])
 
 if args.read == True:
     print "COLVAR file contains the following fields:\n"
@@ -118,7 +108,7 @@ elif str(args.field2) not in data.keys():
 
 elif args.save == True:
     if (args.field1 != None and args.field2 != None):
-        with open('%s_vs_%s_%s.csv' % (str(args.field1), str(args.field2), str(args.colvar), 'w') as f:
+        with open('%s_vs_%s_%s.csv' % (str(args.field1), str(args.field2), str(args.colvar)), 'w') as f:
             for entries in zip(data[str(args.field1)], data[str(args.field2)]):
                 f.write('%s,%s\n' % (entries[0], entries[1]))
     else:
@@ -129,17 +119,17 @@ elif args.save == True:
 elif args.plot == True:
     if (args.field1 != None and args.field2 != None):
         print 'Plotting...'
-            try:
-                pyplot.plot(data[str(args.field1)], data[str(args.field2)], 'k.')
-                pyplot.xlabel(str(args.field1))
-                pyplot.ylabel(str(args.field2))
-                plottitle = '%s_vs_%s.svg' % (str(args.field1), str(args.field2))
-                pyplot.savefig('%s_vs_%s_%s.svg' % (str(args.field1), str(args.field2), str(args.colvar)))
-            except:
-                print 'Variable not in COLVAR file.\n'
-                print 'Select from the following list:\n'
-                for entry in data:
-                    print entry
+        try:
+            pyplot.plot(data[str(args.field1)], data[str(args.field2)], 'k.')
+            pyplot.xlabel(str(args.field1))
+            pyplot.ylabel(str(args.field2))
+            plottitle = '%s_vs_%s.svg' % (str(args.field1), str(args.field2))
+            pyplot.savefig('%s_vs_%s_%s.svg' % (str(args.field1), str(args.field2), str(args.colvar)))
+        except:
+            print 'Variable not in COLVAR file.\n'
+            print 'Select from the following list:\n'
+            for entry in data:
+                print entry
 
 else:
     print 'Option not recognised.'
